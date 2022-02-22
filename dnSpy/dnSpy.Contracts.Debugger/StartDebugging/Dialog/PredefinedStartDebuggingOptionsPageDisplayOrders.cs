@@ -43,6 +43,11 @@ namespace dnSpy.Contracts.Debugger.StartDebugging.Dialog {
 		public static readonly double DotNetUnityConnect = 103000;
 
 		/// <summary>
+		/// Unity debug engine (connect to a Androd process)
+		/// </summary>
+		public static readonly double DotNetUnityAndroidConnect = 104000;
+
+		/// <summary>
 		/// Mono debug engine (start executable)
 		/// </summary>
 		public static readonly double DotNetMono = 110000;

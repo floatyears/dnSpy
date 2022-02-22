@@ -41,6 +41,7 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 		uint moduleSize;
 		bool isDynamic;
 		bool isInMemory;
+		const string AndroidModulePrefix = "/data/app";
 
 		ModuleCreator(DbgEngineImpl engine, DbgObjectFactory objectFactory, DbgAppDomain appDomain, ModuleMirror monoModule, int moduleOrder) {
 			this.engine = engine;
@@ -60,7 +61,7 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 		DbgEngineModule CreateModuleCore<T>(T data) where T : class {
 			DbgImageLayout imageLayout;
 
-			string filename = monoModule.FullyQualifiedName;
+			string filename = engine.GetAssemblyFullyQualifiedName(monoModule.FullyQualifiedName);
 			const string InMemoryModulePrefix = "data-";
 			if (filename.StartsWith(InMemoryModulePrefix, StringComparison.Ordinal)) {
 				isDynamic = false;
@@ -168,7 +169,7 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 			var moduleSizeTmp = moduleSize;
 			var engine = this.engine;
 			var runtime = objectFactory.Runtime;
-			var filename = monoModule.FullyQualifiedName;
+			var filename = engine.GetAssemblyFullyQualifiedName(monoModule.FullyQualifiedName);
 			return () => {
 				DbgRawMetadata? rawMd = null;
 				try {

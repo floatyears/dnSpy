@@ -57,6 +57,8 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 		public override string[] Debugging { get; }
 		public override event EventHandler<DbgEngineMessage>? Message;
 
+		public string MappedDllDirInAndroid;
+
 		internal DbgObjectFactory ObjectFactory => objectFactory!;
 		internal VirtualMachine MonoVirtualMachine => vm!;
 
@@ -100,7 +102,8 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 		BreakOnEntryPointData? breakOnEntryPointData;
 		ConsoleOutputReaderInfo? consoleStdOut;
 		ConsoleOutputReaderInfo? consoleStdErr;
-
+		//Can't get dll file or memory in Android, so map the dlls to local files
+		string? mappedDllsDirInAndroid;
 		sealed class BreakOnEntryPointData {
 			public BreakpointEventRequest? Breakpoint;
 			public string? Filename;
@@ -178,6 +181,12 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 			}
 		}
 
+		public string GetAssemblyFullyQualifiedName(string assemblyFullName) {
+			if (mappedDllsDirInAndroid != null && assemblyFullName.StartsWith("/data/app")) {
+				return Path.Combine(mappedDllsDirInAndroid, Path.GetFileName(assemblyFullName));
+			}
+			return assemblyFullName;
+		}
 		abstract class PendingMessage {
 			public abstract bool MustWaitForRun { get; }
 			public abstract bool RequireResumeVM { get; }
@@ -275,6 +284,7 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 				TimeSpan connectionTimeout;
 				int expectedPid;
 				string? filename;
+				mappedDllsDirInAndroid = null;
 				if (options is MonoStartDebuggingOptions startMonoOptions) {
 					connectionAddress = "127.0.0.1";
 					connectionPort = startMonoOptions.ConnectionPort;
@@ -375,7 +385,8 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 						dnSpy_Debugger_DotNet_Mono_Resources.CouldNotConnectToUnityGame_MakeSureMonoDllFileIsPatched;
 				}
 				else if (options is MonoConnectStartDebuggingOptionsBase connectOptions &&
-					(connectOptions is MonoConnectStartDebuggingOptions || connectOptions is UnityConnectStartDebuggingOptions)) {
+					(connectOptions is MonoConnectStartDebuggingOptions || connectOptions is UnityConnectStartDebuggingOptions
+					|| connectOptions is UnityConnectAndroidStartDebuggingOptions)) {
 					connectionAddress = connectOptions.Address;
 					if (string2.IsNullOrWhiteSpace(connectionAddress))
 						connectionAddress = "127.0.0.1";
@@ -385,6 +396,9 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 					expectedPid = -1;
 					wasAttach = true;
 					processWasRunningOnAttach = !connectOptions.ProcessIsSuspended;
+					if(connectOptions is UnityConnectAndroidStartDebuggingOptions unityAndroidConnectOptions) {
+						mappedDllsDirInAndroid = unityAndroidConnectOptions.WorkingDirectory;
+					}
 				}
 				else if (options is MonoAttachToProgramOptionsBase attachOptions) {
 					connectionAddress = attachOptions.Address;
