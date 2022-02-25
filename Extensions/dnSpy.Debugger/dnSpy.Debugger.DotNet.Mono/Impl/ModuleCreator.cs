@@ -99,6 +99,7 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 				moduleAddress = 0;
 				moduleSize = 0;
 				imageLayout = DbgImageLayout.Unknown;
+				engine.DbgRuntime.Process.DbgManager.WriteMessage(String.Format(dnSpy.Debugger.DotNet.Mono.Properties.dnSpy_Debugger_DotNet_Mono_Resources.Error_CouldNotFindFile, filename));
 			}
 
 			string name = GetFilename(filename);

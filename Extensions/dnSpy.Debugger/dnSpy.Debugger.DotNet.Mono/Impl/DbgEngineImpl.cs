@@ -398,6 +398,34 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 					processWasRunningOnAttach = !connectOptions.ProcessIsSuspended;
 					if(connectOptions is UnityConnectAndroidStartDebuggingOptions unityAndroidConnectOptions) {
 						mappedDllsDirInAndroid = unityAndroidConnectOptions.WorkingDirectory;
+						var psi = new ProcessStartInfo {
+							FileName = "adb.exe",
+							Arguments = $"forward tcp:{connectionPort} tcp:{connectionPort}",
+							WorkingDirectory = unityAndroidConnectOptions.WorkingDirectory ?? string.Empty,
+							UseShellExecute = false,
+							RedirectStandardError = true,
+							RedirectStandardOutput = true,
+						};
+						var process = new Process();
+						try {
+							process.StartInfo = psi;
+							process.OutputDataReceived += new DataReceivedEventHandler((sender, e) => {
+								if (!string.IsNullOrEmpty(e.Data)) {
+									dbgManager.WriteMessage($"adb forward result: {e.Data}");
+								}
+							});
+							process.Start();
+							process.BeginOutputReadLine();
+							process.WaitForExit();
+						}
+						catch (Exception e) {
+							dbgManager.WriteMessage($"adb forward erro: {e.Message}");
+						}
+						finally {
+							process.Close();
+						}
+						//Wait for setting adb forward
+						Thread.Sleep(200);
 					}
 				}
 				else if (options is MonoAttachToProgramOptionsBase attachOptions) {
