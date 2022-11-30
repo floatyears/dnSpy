@@ -57,8 +57,6 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 		public override string[] Debugging { get; }
 		public override event EventHandler<DbgEngineMessage>? Message;
 
-		public string MappedDllDirInAndroid;
-
 		internal DbgObjectFactory ObjectFactory => objectFactory!;
 		internal VirtualMachine MonoVirtualMachine => vm!;
 
@@ -182,7 +180,7 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 		}
 
 		public string GetAssemblyFullyQualifiedName(string assemblyFullName) {
-			if (mappedDllsDirInAndroid != null && assemblyFullName.StartsWith("/data/app")) {
+			if (mappedDllsDirInAndroid != null && (assemblyFullName.StartsWith("/data/app") || assemblyFullName.StartsWith("/sdcard/Android/data"))) {
 				return Path.Combine(mappedDllsDirInAndroid, Path.GetFileName(assemblyFullName));
 			}
 			return assemblyFullName;
@@ -398,32 +396,25 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 					processWasRunningOnAttach = !connectOptions.ProcessIsSuspended;
 					if(connectOptions is UnityConnectAndroidStartDebuggingOptions unityAndroidConnectOptions) {
 						mappedDllsDirInAndroid = unityAndroidConnectOptions.WorkingDirectory;
-						var psi = new ProcessStartInfo {
-							FileName = "adb.exe",
-							Arguments = $"forward tcp:{connectionPort} tcp:{connectionPort}",
-							WorkingDirectory = unityAndroidConnectOptions.WorkingDirectory ?? string.Empty,
-							UseShellExecute = false,
-							RedirectStandardError = true,
-							RedirectStandardOutput = true,
-						};
-						var process = new Process();
-						try {
-							process.StartInfo = psi;
-							process.OutputDataReceived += new DataReceivedEventHandler((sender, e) => {
-								if (!string.IsNullOrEmpty(e.Data)) {
-									dbgManager.WriteMessage($"adb forward result: {e.Data}");
+
+						if(connectionPort == 55555) //如果是默认端口，那么采用adb来获取进程号的方式来计算端口
+						{
+							var procRet = StartAdbProc(unityAndroidConnectOptions.WorkingDirectory, "shell ps | grep sgame");
+							if (!string.IsNullOrEmpty(procRet)) {
+								var lines = procRet.Split(new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+								foreach(var l in lines) {
+									if (l.EndsWith("sgame") || l.EndsWith("sgamece") || l.EndsWith("sgameGlobalESports") || l.EndsWith("sgameGlobal")) {
+										var ls = l.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+										int port = 0;
+										if (ls.Length > 2 && int.TryParse(ls[1], out port)) {
+											connectionPort = (ushort)(56000 + port % 1000);
+										}
+									}
 								}
-							});
-							process.Start();
-							process.BeginOutputReadLine();
-							process.WaitForExit();
+							}
 						}
-						catch (Exception e) {
-							dbgManager.WriteMessage($"adb forward erro: {e.Message}");
-						}
-						finally {
-							process.Close();
-						}
+
+						StartAdbProc(unityAndroidConnectOptions.WorkingDirectory, $"forward tcp:{connectionPort} tcp:{connectionPort}");
 						//Wait for setting adb forward
 						Thread.Sleep(200);
 					}
@@ -512,6 +503,41 @@ namespace dnSpy.Debugger.DotNet.Mono.Impl {
 				return;
 			}
 		}
+
+		private string StartAdbProc(string workingDir, string arg) 
+			{
+			var psi = new ProcessStartInfo {
+				FileName = "adb.exe",
+				Arguments = arg, // $"forward tcp:{connectionPort} tcp:{connectionPort}",
+				WorkingDirectory = workingDir ?? string.Empty,
+				UseShellExecute = false,
+				RedirectStandardError = true,
+				RedirectStandardOutput = true,
+			};
+			var process = new Process();
+			System.Text.StringBuilder ret = new System.Text.StringBuilder();
+			try {
+				process.StartInfo = psi;
+				process.OutputDataReceived += new DataReceivedEventHandler((sender, e) => {
+					if (!string.IsNullOrEmpty(e.Data)) {
+						ret.Append(e.Data);
+						ret.Append("\n");
+						dbgManager.WriteMessage($"adb result: {e.Data}");
+					}
+				});
+				process.Start();
+				process.BeginOutputReadLine();
+				process.WaitForExit();
+			}
+			catch (Exception e) {
+				dbgManager.WriteMessage($"adb forward erro: {e.Message}");
+			}
+			finally {
+				process.Close();
+			}
+			return ret.ToString();
+		}
+
 		ExceptionEventRequest? uncaughtRequest;
 		ExceptionEventRequest? caughtRequest;
 		MethodEntryEventRequest? methodEntryEventRequest;

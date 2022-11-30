@@ -111,8 +111,8 @@ namespace dnSpy.Debugger.DotNet.Metadata.Impl {
 				case DmdLazyMetadataBytesCom lzmdCom:		return new COMD.DmdComMetadataReader(module, lzmdCom.MetaDataImport, lzmdCom.DynamicModuleHelper, lzmdCom.Dispatcher);
 				}
 			}
-			catch {
-				Debug.Fail("Failed to create metadata");
+			catch (Exception e) {
+				Debug.Fail("Failed to create metadata: " + e.Message);
 				return new DmdNullMetadataReader(module);
 			}
 			throw new NotSupportedException($"Unknown lazy metadata: {lzmd.GetType()}");

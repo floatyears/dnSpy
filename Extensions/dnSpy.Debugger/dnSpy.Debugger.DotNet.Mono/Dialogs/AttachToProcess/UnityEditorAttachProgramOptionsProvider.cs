@@ -30,7 +30,8 @@ namespace dnSpy.Debugger.DotNet.Mono.Dialogs.AttachToProcess {
 
 	sealed class UnityEditorAttachProgramOptionsProvider : AttachProgramOptionsProvider {
 		public override IEnumerable<AttachProgramOptions> Create(AttachProgramOptionsProviderContext context) {
-			var processes = Process.GetProcessesByName("Unity");
+			var processes = new List<Process>(Process.GetProcessesByName("SGame"));
+			processes.AddRange(Process.GetProcessesByName("Unity"));
 			try {
 				foreach (var p in processes) {
 					if (!ProcessUtils.IsValidProcess(context, p.Id, p))
